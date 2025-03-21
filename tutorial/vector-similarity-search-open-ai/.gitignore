@@ -1,0 +1,5 @@
+.env
+.venv
+get-pip.py
+redis_schema.yaml
+wiki_movie_plots_deduped.csv
