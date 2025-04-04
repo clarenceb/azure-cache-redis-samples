@@ -48,13 +48,13 @@ REDIS_ENDPOINT=xxxxxxxxxxx.<region>.redis.azure.net:10000
 REDIS_PASSWORD=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## Open Jupityer notebook
+## Open Jupyter notebook
 
 Select the `.venv/bin/python` virtual environment for the Kernel.
 
 Execute each of the cells.
 
-## Run thne movie chat
+## Run then movie chat
 
 ```sh
 python movie-chat.py
