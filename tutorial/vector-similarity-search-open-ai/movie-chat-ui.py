@@ -8,40 +8,73 @@ from langchain_openai import AzureChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, trim_messages
+from langchain_core.messages.utils import count_tokens_approximately
+from langchain_core.runnables import Runnable
+from langchain.chains import create_history_aware_retriever
+from langchain_core.prompts import MessagesPlaceholder
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+
+import debugging as debugging
 
 import streamlit as st
 
-load_dotenv()
+@st.cache_resource
+def load_env():
+    load_dotenv()
 
-API_KEY = os.getenv('API_KEY')
-RESOURCE_ENDPOINT = os.getenv('RESOURCE_ENDPOINT')
-DEPLOYMENT_NAME = os.getenv('DEPLOYMENT_NAME')
-MODEL_NAME = os.getenv('MODEL_NAME')
-REDIS_ENDPOINT = os.getenv('REDIS_ENDPOINT')
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+def get_system_prompt():
+    return (
+        "You are a movie buff assistant who can answer questions about movies, make suggestions, summarise key facts, and provide other useful movie information."
+        "Use the following movie(s) context that and any previous chat history to answer the user's questions."
+        """If you are unsure, just say "I'm unsure". Only discuss movies from the context provided. Provide a succinct follow up prompt.  Don't discuss other topics not related to the movies."""
+        "\n\n"
+        "{context}"
+    )
 
-# Function to load the vector store
-# This function creates a connection to the Redis Vector Store and loads the index
-# It uses the Azure OpenAI embeddings for vectorization
-# and the Redis-py format for the connection string
-def load_vector_store(aoai_resource_endpoint, aoai_deployment_name, aoai_api_key, redis_endpoint, redis_password):
+def display_answer(answer):
+    with st.chat_message("assistant"):
+        st.write(answer)
+
+def display_question(message):
+    with st.chat_message("user"):
+        st.write(message)
+
+def contextualize_q_system_prompt():
+    return (
+        "Given a chat history and the latest user question "
+        "which might reference context in the chat history, "
+        "formulate a standalone question which can be understood "
+        "without the chat history. Do NOT answer the question, "
+        "just reformulate it if needed and otherwise return it as is."
+    )
+
+@st.cache_resource
+def setup_rag_chain(api_key, resource_endpoint, deployment_name, redis_endpoint, redis_password, debug_handler=None):
+    contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt()),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+    )
+
     # we will use Azure OpenAI as our embeddings provider
     embedding = AzureOpenAIEmbeddings(
-        azure_endpoint=aoai_resource_endpoint,
-        azure_deployment=aoai_deployment_name,
-        openai_api_key=aoai_api_key,
+        azure_endpoint=resource_endpoint,
+        azure_deployment=deployment_name,
+        openai_api_key=api_key,
         openai_api_version='2024-03-01-preview',
-        show_progress_bar=True,
         chunk_size=16)
 
-    # Name of the Redis search index to create
+    # name of the Redis search index to create
     index_name = "movieindex"
 
-    # Create a connection string for the Redis Vector Store. Uses Redis-py format: https://redis-py.readthedocs.io/en/stable/connections.html#redis.Redis.from_url
+    # create a connection string for the Redis Vector Store. Uses Redis-py format: https://redis-py.readthedocs.io/en/stable/connections.html#redis.Redis.from_url
     # This example assumes TLS is enabled. If not, use "redis://" instead of "rediss://
     redis_url = "rediss://:" + redis_password + "@"+ redis_endpoint
 
-    # Initialize the Redis Vector Store
     vectorstore = RedisVectorStore.from_existing_index(
         embedding=embedding,
         redis_url=redis_url,
@@ -49,93 +82,113 @@ def load_vector_store(aoai_resource_endpoint, aoai_deployment_name, aoai_api_key
         schema="redis_schema.yaml"
     )
 
-    return vectorstore
+    # Initialize the LLM
+    llm = AzureChatOpenAI(
+        azure_endpoint=resource_endpoint,
+        azure_deployment='gpt-4o-mini',
+        api_key=api_key,
+        openai_api_version="2024-09-01-preview"
+    )
 
-# Function to format the documents
-# This function takes a list of documents and formats them into a single string
-# It extracts the page content from each document and joins them with double newlines
-# This is useful for displaying the context to the LLM
-# in a readable format
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
 
+    history_aware_retriever = create_history_aware_retriever(
+        llm, retriever, contextualize_q_prompt
+    )
 
-def get_system_prompt():
-    return """You are a movie buff who can answer questions about movies, make suggestions, summarise key facts, and provide other useful movie information. Use the following information as context to build your answer. If you are unsure, just say 'I'm unsure. Only discuss movies from the context provided. Don't discuss other topics not related to the movies."""
+    qa_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", get_system_prompt()),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ]
+    )
+    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-st.title("Movie Chatbot")
-st.write("Ask me anything about movies!")
-st.write("""Type your movie question or press "Enter"" to start a new conversation.""")
+    return create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-# Initialize the LLM for chat
-llm = AzureChatOpenAI(
-    azure_endpoint=RESOURCE_ENDPOINT,
-    azure_deployment='gpt-4o-mini',
-    api_key=API_KEY,
-    openai_api_version="2024-09-01-preview"
-)
+def reset_chat_history():
+    st.session_state['chat_history'] = []
 
-vectorstore = load_vector_store(RESOURCE_ENDPOINT, DEPLOYMENT_NAME, API_KEY, REDIS_ENDPOINT, REDIS_PASSWORD)
+def get_chat_history():
+    if 'chat_history' not in st.session_state:
+        reset_chat_history()
+    return st.session_state.get('chat_history')
 
-retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
+def append_to_chat_history(message):
+    if 'chat_history' not in st.session_state:
+        reset_chat_history()
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    # system prompt includes table information, rules, and prompts the LLM to produce
-    # a welcome message to the user.
-    st.session_state.messages = [{"role": "system", "content": get_system_prompt()}]
+    st.session_state['chat_history'].append(message)
 
-print("here 4")
+def display_chat_history():
+    if 'chat_history' not in st.session_state:
+        reset_chat_history()
 
-promptTemplate = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """You are a movie buff who can answer questions about movies, make suggestions, summarise key facts, and provide other useful movie information. Use the following information as context to build your answer. If you are unsure, just say 'I'm unsure". Only discuss movies from the context provided. Don't discuss other topics not related to the movies."""
-        ),
-        (
-            "human",
-            """
-            Context: {context}
-            {question}
-            """
-        ),
-        (
-            "assistant",
-            """Answer:"""
-        )
-    ]
-)
+    for message in st.session_state.chat_history:
+        with st.chat_message(message.type):
+            st.write(message.content)
 
-question = st.chat_input("What's your question about movie(s)?")
+def welcome_message():
+    if len(get_chat_history()) == 0:
+        append_to_chat_history(AIMessage(content=(
+            "Welcome to the Movie Chatbot!"
+            "Ask me anything about movies, and I'll do my best to help you out."
+            "Type 'q' to start a new conversation.")))
 
-if question:
-    if question == 'q':
-        # Clear chat history
-        st.session_state.messages = [{"role": "system", "content": get_system_prompt()}]
-        with st.chat_message("assistant"):
-            st.write("Starting a new conversation...")
-    else:
-        # Add question to chat history
-        st.session_state.messages.append({"role": "user", "content": question})
+if __name__ == "__main__":
+    load_env()
 
-        with st.chat_message("user"):
-            st.write(question)
-        
-        rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
-            | promptTemplate
-            | llm
-            | StrOutputParser()
-        )
+    API_KEY = os.getenv('API_KEY')
+    RESOURCE_ENDPOINT = os.getenv('RESOURCE_ENDPOINT')
+    DEPLOYMENT_NAME = os.getenv('DEPLOYMENT_NAME')
+    REDIS_ENDPOINT = os.getenv('REDIS_ENDPOINT')
+    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+    DEBUG = os.getenv('DEBUG')
 
-        # Get the answer
-        answer = rag_chain.invoke(question)
+    if DEBUG:
+        debug_handler = debugging.DebugCallbackHandler()
 
-        print(f"{answer}")
-        
-        # Add answer to chat history
-        st.session_state.messages.append({"role": "assistant", "content": answer})
-        
-        with st.chat_message("assistant"):
-            st.write(answer)
+    rag_chain = setup_rag_chain(
+        api_key=API_KEY,
+        resource_endpoint=RESOURCE_ENDPOINT,
+        deployment_name=DEPLOYMENT_NAME,
+        redis_endpoint=REDIS_ENDPOINT,
+        redis_password=REDIS_PASSWORD,
+        debug_handler=debug_handler if DEBUG else None
+    )
+
+    st.title('Movie Chat')
+    welcome_message()
+    display_chat_history()
+
+    question = st.chat_input("Ask your questions about movies or type 'q' to start a new conversation.")
+
+    if question:
+        if question == 'q':
+            reset_chat_history()
+            welcome_message()
+            display_chat_history()
+        else:
+            append_to_chat_history(HumanMessage(content=question))
+            display_question(question)
+            try:
+                with st.spinner("Thinking...", show_time=True):
+                    if DEBUG:
+                        response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()}, config={'callbacks': [debug_handler]})
+                    else:
+                        response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()})
+
+                append_to_chat_history(AIMessage(content=response["answer"]))
+                display_answer(response["answer"])
+
+                if DEBUG:
+                    debugging.debug_chat_history(
+                        messages=[
+                            SystemMessage(content=get_system_prompt()), 
+                            *get_chat_history()
+                        ],
+                        truncate_length=200
+                    )
+            except Exception as e:
+                print(f"Error during chain execution: {e}")
