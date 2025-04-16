@@ -69,14 +69,65 @@ python movie-chat.py
 # q
 ```
 
-## Run the movie chat (streamlit UI app)
+![movie chat console](img/movie-chat-console.png "movie chat console")
+
+## Run the movie chat (Streamlit UI app)
 
 ```sh
 streamlit run movie-chat-ui.py
+```
 
-# or with debugging
+![movie chat streamlit ui](img/movie-chat-streamlit.png "movie chat streamlit ui")
+
+## View debugging info (cli or streamlit) in console
+
+```sh
+DEBUG=1 python movie-chat.py
+# or
 DEBUG=1 streamlit run movie-chat-ui.py
 ```
+
+![Debug Mode](img/debug-mode.png "Debug Mode")
+
+See the question rewriting in action which happens in the due to the `history_aware_retriever`:
+
+```python
+history_aware_retriever = create_history_aware_retriever(
+    llm, retriever, contextualize_q_prompt
+)
+```
+
+**Question**: Which movies has Tom Cruise starred in?
+
+List of movies...
+
+**Question**: in what year did he appear in more than one movie?
+
+Gets rewritten to...
+
+![Debug Mode history aware retriever](img/debug-mode-history-aware-retriever.png "Debug Mode history aware retriever")
+
+Result in the app:
+
+![rewrite question example](img/rewrite-question.png "rewrite question example")
+
+## Query movie index using Redis Vector Library (RedisVL)
+
+```sh
+pip install redisvl
+
+redis_url="rediss://:<access-key>@<cache-name>.<region>.redis.azure.net:10000"
+
+rvl index listall -u $redis_url
+rvl index info -i movieindex -u $redis_url
+rvl stats -i movieindex -u $redis_url
+```
+
+![Redis Vector Library (RedisVL)](img/rvl-cli.png "Redis Vector Library (RedisVL)")
+
+## View movie index with Another Redis Desktop Manager
+
+![Another Redis Desktop Manager](img/ardm.png "Another Redis Desktop Manager")
 
 ## TODO
 
