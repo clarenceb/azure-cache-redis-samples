@@ -51,7 +51,7 @@ def contextualize_q_system_prompt():
     )
 
 @st.cache_resource
-def setup_rag_chain(api_key, resource_endpoint, deployment_name, redis_endpoint, redis_password, debug_handler=None):
+def setup_rag_chain(api_key, resource_endpoint, deployment_name, redis_endpoint, redis_password):
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", contextualize_q_system_prompt()),
@@ -146,16 +146,12 @@ if __name__ == "__main__":
     REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
     DEBUG = os.getenv('DEBUG')
 
-    if DEBUG:
-        debug_handler = debugging.DebugCallbackHandler()
-
     rag_chain = setup_rag_chain(
         api_key=API_KEY,
         resource_endpoint=RESOURCE_ENDPOINT,
         deployment_name=DEPLOYMENT_NAME,
         redis_endpoint=REDIS_ENDPOINT,
-        redis_password=REDIS_PASSWORD,
-        debug_handler=debug_handler if DEBUG else None
+        redis_password=REDIS_PASSWORD
     )
 
     st.title('Movie Chat')
@@ -175,7 +171,7 @@ if __name__ == "__main__":
             try:
                 with st.spinner("Thinking...", show_time=True):
                     if DEBUG:
-                        response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()}, config={'callbacks': [debug_handler]})
+                        response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()}, config={'callbacks': [debugging.DebugCallbackHandler()]})
                     else:
                         response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()})
 
