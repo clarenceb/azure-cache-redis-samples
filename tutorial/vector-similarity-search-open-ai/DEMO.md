@@ -56,7 +56,7 @@ Select the `.venv/bin/python` virtual environment for the Kernel.
 
 Execute each of the cells.
 
-## Run then movie chat
+## Run the movie chat (console app)
 
 ```sh
 python movie-chat.py
@@ -64,15 +64,23 @@ python movie-chat.py
 # What movies has Tom Cruise been in?
 # What actor did I just ask about?
 # What years has he been in movies?
-# Just display the years as a comma-separate list and nothig else
+# Just display the years as a comma-separate list and nothing else
 # Tell me about Top Gun
 # q
+```
+
+## Run the movie chat (streamlit UI app)
+
+```sh
+streamlit run movie-chat-ui.py
+
+# or with debugging
+DEBUG=1 streamlit run movie-chat-ui.py
 ```
 
 ## TODO
 
 * Azure Developer CLI
-* Bicep templates to create all infrastructure
 * Deploy app to Container apps
 * Add support to the app for:
     * OpenAI Assistants - maintain chat thread / history
