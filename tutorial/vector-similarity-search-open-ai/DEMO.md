@@ -20,22 +20,18 @@ pip install -r requirements.txt
 
 ## Create Azure Resources
 
-### Azure Managed Redis
+### Azure Managed Redis and Azure OpenAI Service deployment
 
-* Balanced: vCPUS 4, Cache 12GB, SKU B10
-* Public endpoint
-* Cluster Policy: Enterprise
-* Modules: RediSearch
-* Access Key Authentication: enable
+Create the 
 
-### Azure OpenAI Service
+```sh
+RESOURCE_GROUP=movie-chat-amr
+DEPLOYMENT_NAME=movie-chat-amr
+LOCATION=australiaeast
 
-* Type: All networks
-* Create the resource
-* Open [Aure AI Foundry Deployments](https://ai.azure.com/resource/deployments)
-* Create the following deployments:
-    * Model 1: text-embedding-3-large / Global Standard / 250K TPM
-    * Model 2: gpt-4o-mini / Global Standard / 250K TPM
+az group create -n $RESOURCE_GROUP -l $LOCATION
+az deployment group create -g $RESOURCE_GROUP -n $DEPLOYMENT_NAME --template-file main.bicep
+```
 
 ## Create a `.env` file with these values
 
@@ -46,6 +42,12 @@ DEPLOYMENT_NAME=text-embedding-3-large
 MODEL_NAME=text-embedding-3-large
 REDIS_ENDPOINT=xxxxxxxxxxx.<region>.redis.azure.net:10000
 REDIS_PASSWORD=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Or use the helper script:
+
+```sh
+./setup-env.sh
 ```
 
 ## Open Jupyter notebook
@@ -66,3 +68,14 @@ python movie-chat.py
 # Tell me about Top Gun
 # q
 ```
+
+## TODO
+
+* Azure Developer CLI
+* Bicep templates to create all infrastructure
+* Deploy app to Container apps
+* Add support to the app for:
+    * OpenAI Assistants - maintain chat thread / history
+    * Render charts with Markdown JS
+    * Code interpreter to generate diagrams and display them
+* Tool to search bing images for a image of an actor and can display that in the chat

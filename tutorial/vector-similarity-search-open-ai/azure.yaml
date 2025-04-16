@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: movie-chat-amr
+metadata:
+    template: azd-init@1.13.2
+services:
+    movie-chat-amr:
+        project: .
+        host: containerapp
+        language: python
