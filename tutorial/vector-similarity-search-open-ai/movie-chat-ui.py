@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List
 from dotenv import load_dotenv
 
@@ -134,7 +135,7 @@ def welcome_message():
         append_to_chat_history(AIMessage(content=(
             "Welcome to the Movie Chatbot!"
             "Ask me anything about movies, and I'll do my best to help you out."
-            "Type 'q' to start a new conversation.")))
+            " Type 'q' to start a new conversation.")))
 
 if __name__ == "__main__":
     load_env()
@@ -171,7 +172,10 @@ if __name__ == "__main__":
             try:
                 with st.spinner("Thinking...", show_time=True):
                     if DEBUG:
+                        start_time = time.time()
                         response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()}, config={'callbacks': [debugging.DebugCallbackHandler()]})
+                        end_time = time.time()
+                        elapsed_time = end_time - start_time
                     else:
                         response = rag_chain.invoke({"input": question, "chat_history": get_chat_history()})
 
@@ -179,6 +183,8 @@ if __name__ == "__main__":
                 display_answer(response["answer"])
 
                 if DEBUG:
+                    with st.chat_message("assistant"):
+                        st.write(f"Processing time: {elapsed_time:.2f} seconds")
                     debugging.debug_chat_history(
                         messages=[
                             SystemMessage(content=get_system_prompt()), 

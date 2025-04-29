@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List
 from dotenv import load_dotenv
 
@@ -133,7 +134,10 @@ while True:
     else:
         try:
             if DEBUG:
+                start_time = time.time()
                 response = rag_chain.invoke({"input": question, "chat_history": chat_history}, config={'callbacks': [debug_handler]})
+                end_time = time.time()
+                elapsed_time = end_time - start_time
             else:
                 response = rag_chain.invoke({"input": question, "chat_history": chat_history})
 
@@ -148,6 +152,7 @@ while True:
             display_answer(answer)
 
             if DEBUG:
+                print(f"\n(Processing time: {elapsed_time:.2f} seconds)")
                 debugging.debug_chat_history(
                     messages=[
                         SystemMessage(content=get_system_prompt()),
