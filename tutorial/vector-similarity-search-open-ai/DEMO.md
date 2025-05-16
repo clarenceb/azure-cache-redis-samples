@@ -1,5 +1,7 @@
 # Demo Steps
 
+This demo has moved to: https://github.com/clarenceb/movie-chat
+
 ## Setup Python Virtual Environment
 
 ```sh
@@ -22,7 +24,7 @@ pip install -r requirements.txt
 
 ### Azure Managed Redis and Azure OpenAI Service deployment
 
-Create the 
+Create the Azure sources:
 
 ```sh
 RESOURCE_GROUP=movie-chat-amr

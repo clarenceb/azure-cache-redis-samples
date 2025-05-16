@@ -4,7 +4,7 @@ openAIServiceEndpoint=$(az deployment group show -g movie-chat-amr -n movie-chat
 openAIApiKey=$(az cognitiveservices account keys list --name aoai-3o4hqx57thpu6 --resource-group movie-chat-amr --query key1 -o tsv)
 redisCacheEndpoint=$(az deployment group show -g movie-chat-amr -n movie-chat-amr --query "properties.outputs.redisCacheEndpoint.value" -o tsv)
 redisCacheName=$(az deployment group show -g movie-chat-amr -n movie-chat-amr --query "properties.outputs.redisCacheName.value" -o tsv)
-redisPassword="manually-set-password"
+redisPassword="<manually-set-password>"
 
 echo "OpenAI Service Endpoint: $openAIServiceEndpoint"
 echo "Redis Cache Endpoint: $redisCacheEndpoint"

@@ -82,7 +82,7 @@ Here is your <a href="<insert-SVG-image-url-here>" target="_blank">**Mermaid Dia
 
 ## Sample chat questions
 
-With 'movies-index' AI Search index only (if any questions fail to return a response, ask "why?" or "did you search?"):
+With `movies-index` AI Search index only (if any questions fail to return a response, ask "why?" or "did you search?"):
 * Which movies did both Tom Cruise and Jamie Foxx star in?
 * Find me 3 sci-fi movies for this week's movie marathon, provide a short description for each choice.
 * Find me up to 3 movies released in 1987.
@@ -92,14 +92,14 @@ With 'movies-index' AI Search index only (if any questions fail to return a resp
 * Suggest 3 movies about aliens and that are a comedy.
 * Show me a table with movie title, actors, plot summary, year, order by year for those movies.
 
-With Code Interpreter and movies.csv added:
+With Code Interpreter and `movie_list.csv` added:
 * Which movies has Tom Cruise been in?
 * How many movies has Tom Cruise been in?  Just show me the number and a list of the years ordered oldest to my recent.
 * Find the top 3 years that had the most movies in them.
 * Show me a chart of Movies count by year as a bar chart.
 * Show me a chart of Movies count by year as a bar chart - annotate on the chart each year a "Mission: Impossible" movie was released (show which specific movie: original or sequel).
 
-With custom tool (mermaid_to_image) added as OpenAPI tool:
+With custom tool (`mermaidjs_to_image_tool`) added as an OpenAPI tool:
 * Show me a Mermaid timeline diagram for Tom Cruise showing the year and movies he acted in for each year
 * Show me a mermaid pie chart with the years and count by year for all movies you know about
 * Find the 5 most recent Tom Cruise movies.  Render the result as a Mermaid mindmap diagram.  The root node is the Tom Cruise, linking to the years, and under each year the movie titles. 
